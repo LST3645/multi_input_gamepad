@@ -1,0 +1,20 @@
+# 构建产物
+bin/
+obj/
+dist/
+
+# 本地与临时（离线安装包、构建缓存、验证产物）
+.local/
+.tmp/
+.vs/
+*.user
+*.suo
+*.log
+
+# 构建缓存目录（本仓库把 DOTNET_CLI_HOME / NUGET_PACKAGES / APPDATA 重定向到工作区内）
+.nuget/
+.dotnet/
+.dotnet-home/
+.appdata/
+.localappdata/
+.clihome/

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>MultiInput.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+
+    <Product>多输入整合手柄</Product>
+    <AssemblyTitle>多输入整合手柄</AssemblyTitle>
+    <Company>MultiInput</Company>
+    <Description>整合物理 Xbox 手柄与键盘鼠标，输出为虚拟 Xbox Series 手柄</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MultiInput.Core\MultiInput.Core.csproj" />
+    <ProjectReference Include="..\MultiInput.Input\MultiInput.Input.csproj" />
+    <ProjectReference Include="..\MultiInput.Output\MultiInput.Output.csproj" />
+  </ItemGroup>
+</Project>
