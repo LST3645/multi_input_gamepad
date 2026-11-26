@@ -83,7 +83,6 @@ dotnet publish src/multi_input_gamepad.App/multi_input_gamepad.App.csproj -c Rel
 | `src/multi_input_gamepad.Spike` | M0 技术验证程序（保留作参考） |
 | `tools/engine-check` | 引擎断言脚本 |
 | `lib/` | HIDMaestro.Core.dll 等第三方二进制 |
-| `架构方案.md` | 架构与关键决策文档 |
 
 ## 第三方组件
 
