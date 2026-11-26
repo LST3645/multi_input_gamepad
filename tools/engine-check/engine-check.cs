@@ -1,5 +1,5 @@
-#:project ../../src/MultiInput.Core/MultiInput.Core.csproj
-using MultiInput.Core;
+#:project ../../src/multi_input_gamepad.Core/multi_input_gamepad.Core.csproj
+using MultiInputGamepad.Core;
 
 int fails = 0;
 void Check(string name, bool ok)

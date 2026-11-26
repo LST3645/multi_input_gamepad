@@ -1,4 +1,4 @@
-# 多输入整合手柄（MultiInput）
+# 多输入整合手柄（multi_input_gamepad）
 
 把**物理 Xbox 手柄 + 键盘 + 鼠标**整合成一个**虚拟 Xbox Series 手柄**：键盘鼠标可以映射成手柄的任意按键/方向/扳机，物理手柄的输入实时转发，游戏只看到一台手柄。
 
@@ -25,7 +25,7 @@
 
 ## 安装与启动
 
-1. 运行 `dist\MultiInput.App.exe`（首次会弹 UAC，这是必须的）；
+1. 运行 `dist\multi_input_gamepad.exe`（首次会弹 UAC，这是必须的）；
 2. 首次启动会安装 HIDMaestro 的虚拟手柄驱动（本地自签名，Windows 可能提示确认）；
 3. 主界面出现后，状态栏显示「虚拟手柄：已启动」即就绪；
 4. 按 `SHIFT+ALT+\` 或点击顶部状态胶囊开启/关闭捕获模式。
@@ -43,10 +43,10 @@
 
 | 内容 | 路径 |
 |---|---|
-| 配置 | `%LOCALAPPDATA%\MultiInput\profiles\<名称>.json` |
-| 当前激活配置名 | `%LOCALAPPDATA%\MultiInput\settings.json` |
-| 导入备份 | `%LOCALAPPDATA%\MultiInput\cache\` |
-| HidHide 自愈标记 | `%LOCALAPPDATA%\MultiInput\hidhide.state` |
+| 配置 | `%LOCALAPPDATA%\multi_input_gamepad\profiles\<名称>.json` |
+| 当前激活配置名 | `%LOCALAPPDATA%\multi_input_gamepad\settings.json` |
+| 导入备份 | `%LOCALAPPDATA%\multi_input_gamepad\cache\` |
+| HidHide 自愈标记 | `%LOCALAPPDATA%\multi_input_gamepad\hidhide.state` |
 
 一套配置 = 映射规则 + 归一化开关 + 死区参数，导入导出就是这一个文件。
 
@@ -62,9 +62,9 @@
 ## 构建
 
 ```powershell
-dotnet build MultiInput.slnx
+dotnet build multi_input_gamepad.slnx
 dotnet run tools/engine-check/engine-check.cs          # 映射/死区断言
-dotnet publish src/MultiInput.App/MultiInput.App.csproj -c Release -r win-x64 `
+dotnet publish src/multi_input_gamepad.App/multi_input_gamepad.App.csproj -c Release -r win-x64 `
   --self-contained true -p:PublishSingleFile=true `
   -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o dist
 ```
@@ -76,11 +76,11 @@ dotnet publish src/MultiInput.App/MultiInput.App.csproj -c Release -r win-x64 `
 
 | 目录 | 内容 |
 |---|---|
-| `src/MultiInput.Core` | 映射引擎、摇杆数学、死区状态机（无 UI、无平台依赖） |
-| `src/MultiInput.Input` | 低层键鼠钩子、RawInput、XInput、HidHide 控制 |
-| `src/MultiInput.Output` | HIDMaestro 虚拟手柄后端 |
-| `src/MultiInput.App` | WPF 界面、捕获状态机、转发循环 |
-| `src/MultiInput.Spike` | M0 技术验证程序（保留作参考） |
+| `src/multi_input_gamepad.Core` | 映射引擎、摇杆数学、死区状态机（无 UI、无平台依赖） |
+| `src/multi_input_gamepad.Input` | 低层键鼠钩子、RawInput、XInput、HidHide 控制 |
+| `src/multi_input_gamepad.Output` | HIDMaestro 虚拟手柄后端 |
+| `src/multi_input_gamepad.App` | WPF 界面、捕获状态机、转发循环 |
+| `src/multi_input_gamepad.Spike` | M0 技术验证程序（保留作参考） |
 | `tools/engine-check` | 引擎断言脚本 |
 | `lib/` | HIDMaestro.Core.dll 等第三方二进制 |
 | `架构方案.md` | 架构与关键决策文档 |

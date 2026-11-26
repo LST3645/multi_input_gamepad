@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>MultiInputGamepad.App</RootNamespace>
+    <AssemblyName>multi_input_gamepad</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+
+    <Product>多输入整合手柄</Product>
+    <AssemblyTitle>多输入整合手柄</AssemblyTitle>
+    <Company>MultiInputGamepad</Company>
+    <Description>整合物理 Xbox 手柄与键盘鼠标，输出为虚拟 Xbox Series 手柄</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\multi_input_gamepad.Core\multi_input_gamepad.Core.csproj" />
+    <ProjectReference Include="..\multi_input_gamepad.Input\multi_input_gamepad.Input.csproj" />
+    <ProjectReference Include="..\multi_input_gamepad.Output\multi_input_gamepad.Output.csproj" />
+  </ItemGroup>
+</Project>

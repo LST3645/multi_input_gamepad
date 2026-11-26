@@ -1,4 +1,4 @@
-"""生成 MultiInput 应用图标：深色圆角底 + 金色手柄，多尺寸 ICO。"""
+"""生成 MultiInputGamepad 应用图标：深色圆角底 + 金色手柄，多尺寸 ICO。"""
 
 from PIL import Image, ImageDraw
 
@@ -31,7 +31,7 @@ for box in ([470, 452, 534, 632], [422, 502, 582, 582]):
 for cx, cy in ((700, 470), (760, 530), (700, 590), (640, 530)):
     d.ellipse([cx - 30, cy - 30, cx + 30, cy + 30], fill=DARK)
 
-img.save("src/MultiInput.App/app.ico",
+img.save("src/MultiInputGamepad.App/app.ico",
          sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (24, 24), (16, 16)])
 img.resize((256, 256), Image.LANCZOS).save(".tmp/app-icon-preview.png")
 print("ok")

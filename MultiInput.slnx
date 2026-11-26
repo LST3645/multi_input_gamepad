@@ -1,9 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/MultiInput.App/MultiInput.App.csproj" />
-    <Project Path="src/MultiInput.Core/MultiInput.Core.csproj" />
-    <Project Path="src/MultiInput.Input/MultiInput.Input.csproj" />
-    <Project Path="src/MultiInput.Output/MultiInput.Output.csproj" />
-    <Project Path="src/MultiInput.Spike/MultiInput.Spike.csproj" />
-  </Folder>
-</Solution>

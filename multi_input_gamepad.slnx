@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/multi_input_gamepad.App/multi_input_gamepad.App.csproj" />
+    <Project Path="src/multi_input_gamepad.Core/multi_input_gamepad.Core.csproj" />
+    <Project Path="src/multi_input_gamepad.Input/multi_input_gamepad.Input.csproj" />
+    <Project Path="src/multi_input_gamepad.Output/multi_input_gamepad.Output.csproj" />
+    <Project Path="src/multi_input_gamepad.Spike/multi_input_gamepad.Spike.csproj" />
+  </Folder>
+</Solution>
