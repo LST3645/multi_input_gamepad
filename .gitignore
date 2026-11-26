@@ -3,23 +3,10 @@ bin/
 obj/
 dist/
 
-# 内部文档（仅本地保留，不随仓库发布）
-/架构方案.md
-/M0-验证清单.md
-/AGENTS.md
-
-# 本地与临时（离线安装包、构建缓存、验证产物）
+# 本地临时与 IDE（进程文件、验证产物、用户设置）
 .local/
 .tmp/
 .vs/
 *.user
 *.suo
 *.log
-
-# 构建缓存目录（本仓库把 DOTNET_CLI_HOME / NUGET_PACKAGES / APPDATA 重定向到工作区内）
-.nuget/
-.dotnet/
-.dotnet-home/
-.appdata/
-.localappdata/
-.clihome/
