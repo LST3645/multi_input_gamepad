@@ -78,7 +78,11 @@ public static class ConfigStore
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), DataDirectoryName);
     }
 
-    /// <summary>项目改名后把旧数据目录整体搬到新目录（仅当新目录不存在且旧目录存在）。</summary>
+    /// <summary>
+    /// 项目改名后把旧数据目录搬到新目录（仅当新目录不存在且旧目录存在）。
+    /// 用「复制 + 尽力删旧」而不是 <see cref="Directory.Move"/>：旧目录的属主可能是之前提权运行时创建的，
+    /// 直接改名会被拒；复制只需读权限，删不掉旧目录也只是留一份冗余。
+    /// </summary>
     private static void MigrateRenamedRoot()
     {
         if (Environment.GetEnvironmentVariable("MI_MAPPINGS") is { Length: > 0 }) return;   // 测试重定向时不碰真实目录
@@ -88,8 +92,17 @@ public static class ConfigStore
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string oldRoot = Path.Combine(localAppData, LegacyDataDirectoryName);
 
-            if (!Directory.Exists(Root) && Directory.Exists(oldRoot))
-                Directory.Move(oldRoot, Root);
+            if (Directory.Exists(Root) || !Directory.Exists(oldRoot)) return;
+
+            Directory.CreateDirectory(Root);
+            foreach (string dir in Directory.GetDirectories(oldRoot, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(Path.Combine(Root, Path.GetRelativePath(oldRoot, dir)));
+
+            foreach (string file in Directory.GetFiles(oldRoot, "*", SearchOption.AllDirectories))
+                File.Copy(file, Path.Combine(Root, Path.GetRelativePath(oldRoot, file)), overwrite: true);
+
+            try { Directory.Delete(oldRoot, recursive: true); }
+            catch { /* 删不掉就留着，不影响使用 */ }
         }
         catch
         {
