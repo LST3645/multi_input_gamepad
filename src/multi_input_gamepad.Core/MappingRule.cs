@@ -7,6 +7,7 @@ public enum MappingSource
     MouseButton = 1, // KeyCode = 1 左 / 2 右 / 3 中 / 4 X1 / 5 X2
     MouseWheel = 2,  // KeyCode = 0 上滚 / 1 下滚；持续滚动视为按住，停滚超时视为松开
     MouseAxis = 3,   // 相对位移 → 摇杆轴（AxisX / AxisY）
+    Gamepad = 4,     // PadInput = 手柄按键 / 扳机档位 / 摇杆方向（物理手柄，捕获开启时生效）
 }
 
 /// <summary>摇杆轴编号（<see cref="MappingRule.AxisX"/> 等）。Y 轴向上为正。</summary>
@@ -68,8 +69,11 @@ public sealed class MappingRule
     public MappingSource Source { get; set; }
 
     // —— 输入侧 ——
-    /// <summary>键盘：虚拟键码；鼠标键：1..5；滚轮：0=上滚 1=下滚；鼠标移动不适用。</summary>
+    /// <summary>键盘：虚拟键码；鼠标键：1..5；滚轮：0=上滚 1=下滚；鼠标移动/手柄不适用。</summary>
     public int KeyCode { get; set; }
+
+    /// <summary>手柄来源：具体是哪个按键 / 扳机档位 / 摇杆方向（仅 <see cref="MappingSource.Gamepad"/> 有效）。</summary>
+    public GamepadInput PadInput { get; set; }
 
     /// <summary>鼠标移动：水平灵敏度倍率。</summary>
     public float MoveAmountX { get; set; } = 1f;

@@ -80,7 +80,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public double KeyboardPixelWidth => KeyboardLayout.PixelWidth;
     public double KeyboardPixelHeight => KeyboardLayout.PixelHeight;
 
-    public PadVm InputPad { get; } = new("游戏手柄输入（Elite 2）");
+    public PadVm InputPad { get; } = new("游戏手柄输入（Elite 2）") { Editable = true };
     public PadVm OutputPad { get; } = new("虚拟手柄输出（Xbox Series）");
 
     private readonly KeyVm? _capsLockKey;
@@ -215,6 +215,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         var keys = new HashSet<int>();
         var buttons = new HashSet<int>();
+        var padButtons = GamepadButton.None;
         bool wheelUp = false, wheelDown = false;
 
         foreach (var row in Mappings)
@@ -228,12 +229,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     if (rule.KeyCode == 0) wheelUp = true;
                     else wheelDown = true;
                     break;
+                case MappingSource.Gamepad: padButtons |= GamepadInputs.ToButton(rule.PadInput); break;
             }
         }
 
         foreach (var key in Keys)
             key.IsMapped = keys.Contains(key.Vk);
 
+        InputPad.Mapped = padButtons;
         Mouse.SetMapped(buttons, wheelUp, wheelDown);
     }
 

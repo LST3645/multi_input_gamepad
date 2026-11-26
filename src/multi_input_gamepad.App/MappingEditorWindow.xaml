@@ -18,7 +18,8 @@
             <StackPanel x:Name="SourceRow" Orientation="Horizontal" HorizontalAlignment="Left">
                 <RadioButton x:Name="SourceKeyboard" Content="键盘" Style="{StaticResource SegmentRadio}" IsChecked="True" />
                 <RadioButton x:Name="SourceMouse" Content="鼠标" Style="{StaticResource SegmentRadio}" />
-                <RadioButton x:Name="SourceMouseAxis" Content="鼠标移动" Style="{StaticResource SegmentRadio}" Margin="0" />
+                <RadioButton x:Name="SourceMouseAxis" Content="鼠标移动" Style="{StaticResource SegmentRadio}" />
+                <RadioButton x:Name="SourceGamepad" Content="手柄" Style="{StaticResource SegmentRadio}" Margin="0" />
             </StackPanel>
 
             <Button x:Name="OkButton" Grid.Column="1" Content="完成" Style="{StaticResource SmallButton}"
@@ -115,6 +116,126 @@
             </Grid>
 
             <TextBlock x:Name="PreviewText" Style="{StaticResource Hint}" Margin="0,8,0,0" Text="" />
+        </StackPanel>
+
+        <!-- —— 手柄（输入：按键 / 扳机 4 档 / 摇杆四方向，布局与输出手柄一致）—— -->
+        <StackPanel x:Name="PadPanel" Visibility="Collapsed">
+            <TextBlock Text="输入手柄（点选要映射的输入；LT/RT 为 4 档，摇杆按扇区判定）" Style="{StaticResource FieldLabel}" />
+
+            <Grid Margin="0,2,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- LT：4 档滑动条 -->
+                <StackPanel x:Name="InLtWell" Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" Margin="0,0,10,0">
+                    <TextBlock Text="LT" FontSize="11" Foreground="#9A9AA2" HorizontalAlignment="Center" Margin="0,0,0,4" />
+                    <Grid x:Name="InLtBarHost" Width="22" Height="72" Background="Transparent" />
+                    <TextBlock x:Name="InLtText" Text="100%" FontSize="11" Foreground="#9A9AA2" Width="36"
+                               TextAlignment="Center" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                </StackPanel>
+
+                <!-- RT：4 档滑动条 -->
+                <StackPanel x:Name="InRtWell" Grid.Row="0" Grid.RowSpan="2" Grid.Column="3" Margin="10,0,0,0">
+                    <TextBlock Text="RT" FontSize="11" Foreground="#9A9AA2" HorizontalAlignment="Center" Margin="0,0,0,4" />
+                    <Grid x:Name="InRtBarHost" Width="22" Height="72" Background="Transparent" />
+                    <TextBlock x:Name="InRtText" Text="100%" FontSize="11" Foreground="#9A9AA2" Width="36"
+                               TextAlignment="Center" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                </StackPanel>
+
+                <!-- 肩键 -->
+                <RadioButton x:Name="InPickLB" Content="LB" Grid.Row="0" Grid.Column="1"
+                             Style="{StaticResource PickSquare}" Width="46" HorizontalAlignment="Left"
+                             VerticalAlignment="Center" Margin="24,0,0,0" ToolTip="左肩键" />
+                <RadioButton x:Name="InPickRB" Content="RB" Grid.Row="0" Grid.Column="2"
+                             Style="{StaticResource PickSquare}" Width="46" HorizontalAlignment="Right"
+                             VerticalAlignment="Center" Margin="0,0,24,0" ToolTip="右肩键" />
+
+                <!-- 左摇杆：四个方向（扇区中心，含两侧共同区） -->
+                <StackPanel Grid.Row="1" Grid.Column="1" HorizontalAlignment="Center" Margin="0,4,0,0">
+                    <Grid x:Name="InLeftStickGroup" Width="80" Height="80" HorizontalAlignment="Center">
+                        <RadioButton x:Name="InPickLYPlus" Style="{StaticResource StickSector}" Content="{StaticResource SectorUp}"
+                                     ToolTip="左摇杆 上（Y+）" />
+                        <RadioButton x:Name="InPickLXPlus" Style="{StaticResource StickSector}" Content="{StaticResource SectorRight}"
+                                     ToolTip="左摇杆 右（X+）" />
+                        <RadioButton x:Name="InPickLYMinus" Style="{StaticResource StickSector}" Content="{StaticResource SectorDown}"
+                                     ToolTip="左摇杆 下（Y−）" />
+                        <RadioButton x:Name="InPickLXMinus" Style="{StaticResource StickSector}" Content="{StaticResource SectorLeft}"
+                                     ToolTip="左摇杆 左（X−）" />
+                    </Grid>
+                    <TextBlock Text="左摇杆" FontSize="11" Foreground="#9A9AA2" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                </StackPanel>
+
+                <!-- 右摇杆：四个方向 -->
+                <StackPanel Grid.Row="1" Grid.Column="2" HorizontalAlignment="Center" Margin="0,4,0,0">
+                    <Grid x:Name="InRightStickGroup" Width="80" Height="80" HorizontalAlignment="Center">
+                        <RadioButton x:Name="InPickRYPlus" Style="{StaticResource StickSector}" Content="{StaticResource SectorUp}"
+                                     ToolTip="右摇杆 上（Y+）" />
+                        <RadioButton x:Name="InPickRXPlus" Style="{StaticResource StickSector}" Content="{StaticResource SectorRight}"
+                                     ToolTip="右摇杆 右（X+）" />
+                        <RadioButton x:Name="InPickRYMinus" Style="{StaticResource StickSector}" Content="{StaticResource SectorDown}"
+                                     ToolTip="右摇杆 下（Y−）" />
+                        <RadioButton x:Name="InPickRXMinus" Style="{StaticResource StickSector}" Content="{StaticResource SectorLeft}"
+                                     ToolTip="右摇杆 左（X−）" />
+                    </Grid>
+                    <TextBlock Text="右摇杆" FontSize="11" Foreground="#9A9AA2" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                </StackPanel>
+
+                <!-- 十字键 -->
+                <Grid Grid.Row="2" Grid.Column="1" HorizontalAlignment="Center" Margin="0,4,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <RadioButton x:Name="InPickDUp" Content="↑" Style="{StaticResource PickSquare}" Grid.Row="0" Grid.Column="1" />
+                    <RadioButton x:Name="InPickDLeft" Content="←" Style="{StaticResource PickSquare}" Grid.Row="1" Grid.Column="0" />
+                    <RadioButton x:Name="InPickDRight" Content="→" Style="{StaticResource PickSquare}" Grid.Row="1" Grid.Column="2" />
+                    <RadioButton x:Name="InPickDDown" Content="↓" Style="{StaticResource PickSquare}" Grid.Row="2" Grid.Column="1" />
+                </Grid>
+
+                <!-- ABXY -->
+                <Grid Grid.Row="2" Grid.Column="2" HorizontalAlignment="Center" Margin="0,4,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <RadioButton x:Name="InPickY" Content="Y" Style="{StaticResource PickSquare}" Grid.Row="0" Grid.Column="1" />
+                    <RadioButton x:Name="InPickX" Content="X" Style="{StaticResource PickSquare}" Grid.Row="1" Grid.Column="0" />
+                    <RadioButton x:Name="InPickB" Content="B" Style="{StaticResource PickSquare}" Grid.Row="1" Grid.Column="2" />
+                    <RadioButton x:Name="InPickA" Content="A" Style="{StaticResource PickSquare}" Grid.Row="2" Grid.Column="1" />
+                </Grid>
+
+                <!-- View / Menu / L3 / R3 -->
+                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
+                    <RadioButton x:Name="InPickView" Content="View" Style="{StaticResource PickSmall}" />
+                    <RadioButton x:Name="InPickMenu" Content="Menu" Style="{StaticResource PickSmall}" />
+                </StackPanel>
+                <StackPanel Grid.Row="3" Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
+                    <RadioButton x:Name="InPickL3" Content="L3" Style="{StaticResource PickSmall}" />
+                    <RadioButton x:Name="InPickR3" Content="R3" Style="{StaticResource PickSmall}" />
+                </StackPanel>
+            </Grid>
         </StackPanel>
 
         <!-- —— 输出（键盘 / 鼠标）—— -->

@@ -9,15 +9,16 @@ using MultiInputGamepad.Core;
 namespace MultiInputGamepad.App;
 
 /// <summary>
-/// 映射编辑器：来源 = 键盘 / 鼠标（按键+滚轮）/ 鼠标移动；
+/// 映射编辑器：来源 = 键盘 / 鼠标（按键+滚轮）/ 鼠标移动 / 手柄（按键 / 扳机 4 档 / 摇杆四方向）；
 /// 输出用模拟手柄布局点选（LT/RT 为 10 级可拖拽进度条），可组合最多 3 个目标；
 /// 「立即/延迟 + ms」作用于当前槽，表示相对上一项再等 N ms（逐项累加）。
-/// 「输入键」通过低层钩子的按键探针拾取（由 MainWindow 转发）。
+/// 「输入键」通过低层钩子的按键探针拾取（由 MainWindow 转发）；手柄页则直接在输入手柄布局上点选。
 /// </summary>
 public partial class MappingEditorWindow : Window
 {
     private const int VkEscape = 0x1B;
     private const double TriggerTrackHeight = 100;
+    private const double InputTriggerTrackHeight = 72;
 
     /// <summary>「立即/延迟」里延迟框的默认值（添加新槽后回到默认状态）。</summary>
     private const int DefaultDelayMs = 100;
@@ -55,15 +56,21 @@ public partial class MappingEditorWindow : Window
     private readonly IReadOnlyList<MappingRule> _allRules;
     private readonly List<Slot> _slots = new();
     private readonly Dictionary<GamepadTarget, RadioButton> _picks = new();
+    private readonly Dictionary<RadioButton, GamepadInput> _padPicks = new();
     private readonly Dictionary<RadioButton, (MappingSource Source, int Code)> _mousePicks = new();
     private readonly Dictionary<RadioButton, int> _axisX = new();
     private readonly Dictionary<RadioButton, int> _axisY = new();
 
     private Border _ltFill = null!;
     private Border _rtFill = null!;
+    private Border _inLtFill = null!;
+    private Border _inRtFill = null!;
 
     private int _ltLevel = MappingRule.TriggerSteps;
     private int _rtLevel = MappingRule.TriggerSteps;
+    private int _inLtLevel = GamepadInputs.TriggerLevels;
+    private int _inRtLevel = GamepadInputs.TriggerLevels;
+    private GamepadInput? _padInput;
     private int _activeIndex;
     private int _vk = -1;
     private bool _probing;
@@ -83,19 +90,26 @@ public partial class MappingEditorWindow : Window
         _allRules = allRules ?? Array.Empty<MappingRule>();
 
         BuildTargetMap();
+        BuildPadMap();
         BuildMouseMap();
         BuildAxisMaps();
         BuildTriggerBar(GamepadTarget.LeftTrigger, LtBarHost, out _ltFill);
         BuildTriggerBar(GamepadTarget.RightTrigger, RtBarHost, out _rtFill);
+        _inLtFill = BuildLevelBar(InLtBarHost, GamepadInputs.TriggerLevels, level => SelectPadTrigger(true, level));
+        _inRtFill = BuildLevelBar(InRtBarHost, GamepadInputs.TriggerLevels, level => SelectPadTrigger(false, level));
 
         // 事件在 InitializeComponent 之后统一挂接，避免解析期访问未创建控件
         SourceKeyboard.Checked += (_, _) => UpdateSourcePanels();
         SourceMouse.Checked += (_, _) => UpdateSourcePanels();
         SourceMouseAxis.Checked += (_, _) => UpdateSourcePanels();
+        SourceGamepad.Checked += (_, _) => UpdateSourcePanels();
         KeyBox.MouseLeftButtonDown += OnKeyBoxClick;
 
         foreach (var (target, pick) in _picks)
             pick.Checked += (_, _) => OnTargetPicked(target);
+
+        foreach (var (pick, input) in _padPicks)
+            pick.Checked += (_, _) => OnPadPicked(input);
 
         foreach (var pick in _mousePicks.Keys)
             pick.Checked += (_, _) => OnMouseSourcePicked(pick);
@@ -126,6 +140,7 @@ public partial class MappingEditorWindow : Window
         UpdateKeyBox();
         LoadDelayUi();
         UpdatePreview();
+        UpdateInputTriggers();
         RefreshOutputs();
     }
 
@@ -159,6 +174,34 @@ public partial class MappingEditorWindow : Window
         _picks[GamepadTarget.RightYPlus] = PickRYPlus;
     }
 
+    private void BuildPadMap()
+    {
+        _padPicks[InPickA] = GamepadInput.A;
+        _padPicks[InPickB] = GamepadInput.B;
+        _padPicks[InPickX] = GamepadInput.X;
+        _padPicks[InPickY] = GamepadInput.Y;
+        _padPicks[InPickLB] = GamepadInput.LeftBumper;
+        _padPicks[InPickRB] = GamepadInput.RightBumper;
+        _padPicks[InPickL3] = GamepadInput.LeftStick;
+        _padPicks[InPickR3] = GamepadInput.RightStick;
+        _padPicks[InPickView] = GamepadInput.Back;
+        _padPicks[InPickMenu] = GamepadInput.Start;
+        _padPicks[InPickDUp] = GamepadInput.DPadUp;
+        _padPicks[InPickDDown] = GamepadInput.DPadDown;
+        _padPicks[InPickDLeft] = GamepadInput.DPadLeft;
+        _padPicks[InPickDRight] = GamepadInput.DPadRight;
+
+        // 摇杆四方向（每根摇杆 4 个独立输入，判定含两侧共同区）
+        _padPicks[InPickLYPlus] = GamepadInput.LeftStickUp;
+        _padPicks[InPickLYMinus] = GamepadInput.LeftStickDown;
+        _padPicks[InPickLXMinus] = GamepadInput.LeftStickLeft;
+        _padPicks[InPickLXPlus] = GamepadInput.LeftStickRight;
+        _padPicks[InPickRYPlus] = GamepadInput.RightStickUp;
+        _padPicks[InPickRYMinus] = GamepadInput.RightStickDown;
+        _padPicks[InPickRXMinus] = GamepadInput.RightStickLeft;
+        _padPicks[InPickRXPlus] = GamepadInput.RightStickRight;
+    }
+
     private void BuildMouseMap()
     {
         _mousePicks[MouseX2] = (MappingSource.MouseButton, 5);
@@ -186,10 +229,20 @@ public partial class MappingEditorWindow : Window
         }
     }
 
-    /// <summary>LT/RT 可拖拽进度条：点按或上下拖，自动吸附到最近的 1/10。</summary>
+    /// <summary>LT/RT 可拖拽进度条：点按或上下拖，自动吸附到最近的 1/10 档。</summary>
     private void BuildTriggerBar(GamepadTarget target, Grid host, out Border fill)
     {
         host.Height = TriggerTrackHeight;
+        fill = BuildLevelBar(host, MappingRule.TriggerSteps, level => SetTriggerLevel(target, level),
+            () => IsUsedByOtherSlot(target));
+    }
+
+    /// <summary>
+    /// 可拖拽档位条：点按或上下拖，吸附到最近的 1/<paramref name="steps"/> 档。
+    /// <paramref name="locked"/> 返回 true 时忽略点击（该档位已被其他输出槽占用）。
+    /// </summary>
+    private Border BuildLevelBar(Grid host, int steps, Action<int> onPick, Func<bool>? locked = null)
+    {
         host.ClipToBounds = true;
         host.Cursor = Cursors.Hand;
 
@@ -201,7 +254,7 @@ public partial class MappingEditorWindow : Window
             CornerRadius = new CornerRadius(6),
         };
 
-        fill = new Border
+        var fill = new Border
         {
             Background = FillBrush,
             CornerRadius = new CornerRadius(5),
@@ -214,34 +267,38 @@ public partial class MappingEditorWindow : Window
         host.Children.Add(track);
         host.Children.Add(fill);
 
+        int LevelFromY(double y)
+        {
+            double height = host.ActualHeight > 0 ? host.ActualHeight : host.Height;
+
+            // 填充自上而下：越往下拖 = 按下程度越大（与进度条填充方向一致）
+            double fraction = Math.Clamp(y / height, 0, 1);
+            return Math.Clamp((int)Math.Round(fraction * steps, MidpointRounding.AwayFromZero), 1, steps);
+        }
+
         host.MouseLeftButtonDown += (_, e) =>
         {
-            if (IsUsedByOtherSlot(target)) return;
+            if (locked?.Invoke() == true) return;
             host.CaptureMouse();
-            SetTriggerLevel(target, LevelFromY(host, e.GetPosition(host).Y));
+            onPick(LevelFromY(e.GetPosition(host).Y));
             e.Handled = true;
         };
         host.MouseMove += (_, e) =>
         {
             if (host.IsMouseCaptured)
-                SetTriggerLevel(target, LevelFromY(host, e.GetPosition(host).Y));
+                onPick(LevelFromY(e.GetPosition(host).Y));
         };
         host.MouseLeftButtonUp += (_, e) =>
         {
             if (host.IsMouseCaptured) host.ReleaseMouseCapture();
             e.Handled = true;
         };
+
+        return fill;
     }
 
-    private static int LevelFromY(FrameworkElement host, double y)
-    {
-        double height = host.ActualHeight > 0 ? host.ActualHeight : TriggerTrackHeight;
-
-        // 填充自上而下：越往下拖 = 按下程度越大（与进度条填充方向一致）
-        double fraction = Math.Clamp(y / height, 0, 1);
-        int level = (int)Math.Round(fraction * MappingRule.TriggerSteps, MidpointRounding.AwayFromZero);
-        return Math.Clamp(level, 1, MappingRule.TriggerSteps);
-    }
+    /// <summary>档位填充高度（上下各留 2px 边距）。</summary>
+    private static double FillHeight(double trackHeight, int level, int steps) => (trackHeight - 4) * level / steps;
 
     // —— 来源面板 ——
 
@@ -252,10 +309,12 @@ public partial class MappingEditorWindow : Window
         bool keyboard = SourceKeyboard.IsChecked == true;
         bool mouse = SourceMouse.IsChecked == true;
         bool axis = SourceMouseAxis.IsChecked == true;
+        bool pad = SourceGamepad.IsChecked == true;
 
         KeyboardPanel.Visibility = keyboard ? Visibility.Visible : Visibility.Collapsed;
         MousePanel.Visibility = mouse ? Visibility.Visible : Visibility.Collapsed;
         AxisPanel.Visibility = axis ? Visibility.Visible : Visibility.Collapsed;
+        PadPanel.Visibility = pad ? Visibility.Visible : Visibility.Collapsed;
         OutputPanel.Visibility = axis ? Visibility.Collapsed : Visibility.Visible;
 
         ErrorText.Visibility = Visibility.Collapsed;
@@ -352,6 +411,70 @@ public partial class MappingEditorWindow : Window
 
         // 无论是否已选中，都重新应用并刷新（此前已选中时漏了刷新 → “按下后改不动”）
         SelectActiveTarget(target, level * 10);
+    }
+
+    // —— 手柄输入（按键 / 扳机 4 档 / 摇杆四方向）——
+
+    /// <summary>选中一个手柄输入（null = 清空）。按键、扳机档位、摇杆方向互相独立、互斥选中。</summary>
+    private void SelectPadInput(GamepadInput? input)
+    {
+        _padInput = input;
+
+        bool previous = _syncing;
+        _syncing = true;
+        try
+        {
+            foreach (var (pick, value) in _padPicks)
+                pick.IsChecked = input == value;
+        }
+        finally
+        {
+            _syncing = previous;
+        }
+
+        if (input is { } picked && GamepadInputs.TryGetTriggerLevel(picked, out bool left, out int level))
+        {
+            if (left) _inLtLevel = level;
+            else _inRtLevel = level;
+        }
+
+        UpdateInputTriggers();
+        ErrorText.Visibility = Visibility.Collapsed;
+    }
+
+    private void OnPadPicked(GamepadInput input)
+    {
+        if (_syncing) return;
+        SelectPadInput(input);
+    }
+
+    /// <summary>点选输入扳机的某一档：4 档各自是独立输入源。</summary>
+    private void SelectPadTrigger(bool left, int level)
+    {
+        if (level < 1 || level > GamepadInputs.TriggerLevels) return;
+        SelectPadInput(GamepadInputs.TriggerLevel(left, level));
+    }
+
+    /// <summary>输入扳机条：选中时高亮并显示档位，未选中时灰显上次选的档位。</summary>
+    private void UpdateInputTriggers()
+    {
+        UpdateInputTrigger(InLtWell, _inLtFill, InLtText, true);
+        UpdateInputTrigger(InRtWell, _inRtFill, InRtText, false);
+    }
+
+    private void UpdateInputTrigger(StackPanel well, Border fill, TextBlock text, bool left)
+    {
+        bool selected = _padInput is { } input &&
+                        GamepadInputs.TryGetTriggerLevel(input, out bool isLeft, out _) && isLeft == left;
+
+        int level = left ? _inLtLevel : _inRtLevel;
+        fill.Height = FillHeight(InputTriggerTrackHeight, level, GamepadInputs.TriggerLevels);
+        fill.Background = selected ? FillBrush : NeutralFillBrush;
+
+        text.Text = $"{level * 100 / GamepadInputs.TriggerLevels}%";
+        text.Foreground = selected ? SelectedBrush : MutedBrush;
+        text.FontWeight = selected ? FontWeights.Bold : FontWeights.Normal;
+        well.Opacity = selected ? 1.0 : 0.75;
     }
 
 
@@ -451,7 +574,7 @@ public partial class MappingEditorWindow : Window
             ? Math.Clamp(Active.Percent / 10, 1, MappingRule.TriggerSteps)
             : TriggerLevel(target);
 
-        fill.Height = (TriggerTrackHeight - 4) * level / MappingRule.TriggerSteps;
+        fill.Height = FillHeight(TriggerTrackHeight, level, MappingRule.TriggerSteps);
         fill.Background = used ? FillUsedBrush : selected ? FillBrush : NeutralFillBrush;
 
         percentText.Text = $"{level * 10}%";
@@ -618,7 +741,7 @@ public partial class MappingEditorWindow : Window
     /// <summary>速度模型下的换算读数：满偏所需的鼠标速度（单位/秒）。</summary>
     private static string Readout(TextBox move, TextBox displacement)
     {
-        float gain = Float(move, 1f, 0.01f, 20f) * Float(displacement, 0.02f, 0.0005f, 0.5f);
+        float gain = NumberBox.Float(move, 1f, 0.01f, 20f) * NumberBox.Float(displacement, 0.02f, 0.0005f, 0.5f);
         if (gain <= 0f) return "-";
         return $"满偏约需 {100f / gain:0} 单位/秒";
     }
@@ -637,7 +760,7 @@ public partial class MappingEditorWindow : Window
 
             if (picked == ModeDelay)
             {
-                Active.DelayMs = Int(DelayBox, DefaultDelayMs, 1, 5000);
+                Active.DelayMs = NumberBox.Int(DelayBox, DefaultDelayMs, 1, 5000);
                 DelayBox.Text = Active.DelayMs.ToString(CultureInfo.InvariantCulture); // 输入非法时归位到生效值
             }
             else
@@ -657,7 +780,7 @@ public partial class MappingEditorWindow : Window
     private void OnDelayChanged(object sender, TextChangedEventArgs e)
     {
         if (_syncing) return;
-        if (ModeDelay.IsChecked == true) Active.DelayMs = Int(DelayBox, DefaultDelayMs, 1, 5000);
+        if (ModeDelay.IsChecked == true) Active.DelayMs = NumberBox.Int(DelayBox, DefaultDelayMs, 1, 5000);
         RefreshChips(); // 改延迟即时同步到当前槽的显示
     }
 
@@ -718,6 +841,11 @@ public partial class MappingEditorWindow : Window
                         _mousePicked = true;
                         break;
                     }
+                    break;
+
+                case MappingSource.Gamepad:
+                    SourceGamepad.IsChecked = true;
+                    SelectPadInput(rule.PadInput);
                     break;
 
                 default:
@@ -806,10 +934,10 @@ public partial class MappingEditorWindow : Window
             rule.Source = MappingSource.MouseAxis;
             rule.AxisX = axisX;
             rule.AxisY = axisY;
-            rule.MoveAmountX = Float(MoveAmountXBox, 1f, 0.01f, 20f);
-            rule.DisplacementX = Float(DisplacementXBox, 0.02f, 0.0005f, 0.5f);
-            rule.MoveAmountY = Float(MoveAmountYBox, 1f, 0.01f, 20f);
-            rule.DisplacementY = Float(DisplacementYBox, 0.02f, 0.0005f, 0.5f);
+            rule.MoveAmountX = NumberBox.Float(MoveAmountXBox, 1f, 0.01f, 20f);
+            rule.DisplacementX = NumberBox.Float(DisplacementXBox, 0.02f, 0.0005f, 0.5f);
+            rule.MoveAmountY = NumberBox.Float(MoveAmountYBox, 1f, 0.01f, 20f);
+            rule.DisplacementY = NumberBox.Float(DisplacementYBox, 0.02f, 0.0005f, 0.5f);
 
             if (FindConflict(rule) is { } axisConflict)
             {
@@ -833,6 +961,20 @@ public partial class MappingEditorWindow : Window
             }
             rule.Source = MappingSource.Keyboard;
             rule.KeyCode = _vk;
+            rule.AxisX = -1;
+            rule.AxisY = -1;
+        }
+        else if (SourceGamepad.IsChecked == true)
+        {
+            if (_padInput is not { } padInput)
+            {
+                error = "请先选择输入手柄按键、扳机档位或摇杆方向。";
+                return null;
+            }
+
+            rule.Source = MappingSource.Gamepad;
+            rule.PadInput = padInput;
+            rule.KeyCode = 0;
             rule.AxisX = -1;
             rule.AxisY = -1;
         }
@@ -873,7 +1015,7 @@ public partial class MappingEditorWindow : Window
             .ToList();
 
         rule.RepeatEnabled = RepeatCheck.IsChecked == true;
-        rule.RepeatIntervalMs = Int(RepeatMsBox, 100, 20, 2000);
+        rule.RepeatIntervalMs = NumberBox.Int(RepeatMsBox, 100, 20, 2000);
         return rule;
     }
 
@@ -883,9 +1025,21 @@ public partial class MappingEditorWindow : Window
         ErrorText.Visibility = Visibility.Visible;
     }
 
-    /// <summary>同一个输入只能参与一条映射规则（轴向规则按轴占用判定）。</summary>
+    /// <summary>同一个输入只能参与一条映射规则（轴向规则按轴占用判定；手柄按按键/档位/方向占用判定）。</summary>
     private string? FindConflict(MappingRule candidate)
     {
+        if (candidate.Source == MappingSource.Gamepad)
+        {
+            foreach (var other in _allRules)
+            {
+                if (other.Id == candidate.Id) continue;
+                if (other.Source == MappingSource.Gamepad && other.PadInput == candidate.PadInput)
+                    return $"该手柄输入已参与其他映射：{MappingLabels.Input(other)}";
+            }
+
+            return null;
+        }
+
         bool isAxis = candidate.Source == MappingSource.MouseAxis;
 
         foreach (var other in _allRules)
@@ -913,16 +1067,4 @@ public partial class MappingEditorWindow : Window
 
         return null;
     }
-
-    // —— 解析 ——
-
-    private static int Int(TextBox box, int fallback, int min, int max) =>
-        int.TryParse(box.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
-            ? Math.Clamp(value, min, max)
-            : fallback;
-
-    private static float Float(TextBox box, float fallback, float min, float max) =>
-        float.TryParse(box.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float value)
-            ? Math.Clamp(value, min, max)
-            : fallback;
 }

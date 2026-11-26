@@ -24,6 +24,9 @@ public sealed class ProfileConfig
 
     /// <summary>物理摇杆死区参数。</summary>
     public StickDeadzoneConfig Deadzone { get; set; } = new();
+
+    /// <summary>摇杆 → 按键 的判定参数（手柄映射用：按下阈值 + 方向独立扇区角度）。</summary>
+    public StickMappingConfig StickMapping { get; set; } = new();
 }
 
 /// <summary>
@@ -521,6 +524,8 @@ public static class ConfigStore
         config.Mappings ??= new List<MappingRule>();
         config.Deadzone ??= new StickDeadzoneConfig();
         config.Deadzone.Sanitize();
+        config.StickMapping ??= new StickMappingConfig();
+        config.StickMapping.Sanitize();
 
         config.Mappings.RemoveAll(rule => rule.Source == MappingSource.MouseAxis
             ? rule.AxisX < 0 && rule.AxisY < 0
@@ -528,5 +533,9 @@ public static class ConfigStore
 
         config.Mappings.RemoveAll(rule =>
             rule.Source == MappingSource.Keyboard && KeyBlacklist.Contains(rule.KeyCode));
+
+        // 手柄来源写坏（手改配置）时丢弃，避免一个非法值被当成 A 键
+        config.Mappings.RemoveAll(rule =>
+            rule.Source == MappingSource.Gamepad && !Enum.IsDefined(rule.PadInput));
     }
 }

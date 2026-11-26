@@ -11,6 +11,21 @@ public struct MappingResult
 }
 
 /// <summary>
+/// 被映射接管、需要停止透传的手柄输入（不可变快照，规则表变化时整体替换）。
+/// <para>按键按位屏蔽；扳机、摇杆都是**整根屏蔽**——扳机任意一档有规则、摇杆任意一方向有规则，
+/// 该整根输入就不再透传。</para>
+/// </summary>
+public sealed record PassthroughBlock(
+    GamepadButton Buttons,
+    bool LeftTrigger,
+    bool RightTrigger,
+    bool LeftStick,
+    bool RightStick)
+{
+    public static PassthroughBlock Empty { get; } = new(GamepadButton.None, false, false, false, false);
+}
+
+/// <summary>
 /// 映射规则求值引擎。
 /// <para>线程约定：<see cref="OnKey"/>/<see cref="OnMouseMove"/> 等由钩子线程调用，<see cref="Evaluate"/> 由转发线程按拍调用；
 /// 内部单锁串行化，规则表整体替换（不可变快照）。</para>
@@ -30,9 +45,15 @@ public sealed class MappingEngine
     /// <summary>滚轮停滚多久视为松开（毫秒）。</summary>
     private const long WheelHoldMs = 120;
 
+    /// <summary>手柄来源的回滞量：本拍已成立时阈值下移该值，抑制恰好压在阈值上的抖动。</summary>
+    private const float PadReleaseMargin = 0.02f;
+
     private readonly object _gate = new();
     private readonly Dictionary<int, long> _keyDownAtMs = new();
     private readonly Dictionary<int, long> _mouseDownAtMs = new();
+
+    /// <summary>手柄来源的按住起点（规则 Id → 毫秒）；不在表中 = 本拍未成立。</summary>
+    private readonly Dictionary<Guid, long> _padActiveAtMs = new();
 
     // 每个鼠标轴规则：平滑后的输入速度（单位/ms），偏转由速度直接换算
     private readonly Dictionary<Guid, float> _rateX = new();
@@ -40,19 +61,64 @@ public sealed class MappingEngine
 
     private long _wheelUpStartMs, _wheelUpLastMs, _wheelDownStartMs, _wheelDownLastMs;
     private MappingRule[] _rules = Array.Empty<MappingRule>();
+    private volatile PassthroughBlock _passthrough = PassthroughBlock.Empty;
+    private volatile StickMappingConfig _stickMapping = StickMappingConfig.Default;
     private double _pendingDx, _pendingDy;
     private long _lastEvalTicks;   // Stopwatch 计时：TickCount64 只有 ~15.6ms 分辨率，算速度不够
 
     public IReadOnlyList<MappingRule> Rules => _rules;
 
+    /// <summary>被手柄映射接管的输入（转发线程每拍读取）。</summary>
+    public PassthroughBlock Passthrough => _passthrough;
+
     public void SetRules(IEnumerable<MappingRule> rules)
     {
+        var snapshot = rules as MappingRule[] ?? rules.ToArray();
+
+        // 透传抑制只看「哪些手柄输入参与了映射」，与规则当前是否成立无关
+        var blocked = GamepadButton.None;
+        bool blockLeftTrigger = false, blockRightTrigger = false;
+        bool blockLeftStick = false, blockRightStick = false;
+        foreach (var rule in snapshot)
+        {
+            if (rule.Source != MappingSource.Gamepad) continue;
+
+            blocked |= GamepadInputs.ToButton(rule.PadInput);
+
+            if (GamepadInputs.TryGetTriggerLevel(rule.PadInput, out bool left, out _))
+            {
+                if (left) blockLeftTrigger = true;
+                else blockRightTrigger = true;
+            }
+            else if (GamepadInputs.TryGetStickDirection(rule.PadInput, out bool leftStick, out _))
+            {
+                // 摇杆与扳机同构：任意一个方向有规则，整根摇杆就不再透传
+                if (leftStick) blockLeftStick = true;
+                else blockRightStick = true;
+            }
+        }
+
+        _passthrough = new PassthroughBlock(blocked, blockLeftTrigger, blockRightTrigger, blockLeftStick, blockRightStick);
+
         lock (_gate)
         {
-            _rules = rules.ToArray();
+            _rules = snapshot;
+            _padActiveAtMs.Clear();
             ResetDeflection();
             _pendingDx = _pendingDy = 0;   // 旧规则的待处理位移不应带入新规则
         }
+    }
+
+    /// <summary>设置摇杆方向判定参数（配置级；整体替换并夹取，转发线程下一拍生效）。</summary>
+    public void SetStickMapping(StickMappingConfig config)
+    {
+        var copy = new StickMappingConfig
+        {
+            PressThreshold = config.PressThreshold,
+            SectorDegrees = config.SectorDegrees,
+        };
+        copy.Sanitize();
+        _stickMapping = copy;
     }
 
     public void OnKey(int vk, bool down)
@@ -103,11 +169,14 @@ public sealed class MappingEngine
         }
     }
 
+    /// <summary>求值一拍（不含手柄来源，等价于手柄全为 0）。</summary>
+    public MappingResult Evaluate(bool enabled) => Evaluate(enabled, default);
+
     /// <summary>
-    /// 求值一拍。<paramref name="enabled"/> 为 false 时输出恒空并清空摇杆偏转
-    /// （捕获关闭 → 键鼠不驱动手柄，避免与系统输入重复触发）。
+    /// 求值一拍。<paramref name="enabled"/> 只控制**键鼠来源**（捕获关闭 → 键鼠不驱动手柄，避免与系统输入重复触发）；
+    /// **手柄来源始终求值**，规则存盘后立刻生效，不依赖捕获开关。
     /// </summary>
-    public MappingResult Evaluate(bool enabled)
+    public MappingResult Evaluate(bool enabled, in GamepadInputState pad)
     {
         lock (_gate)
         {
@@ -134,14 +203,19 @@ public sealed class MappingEngine
             }
 
             var result = new MappingResult();
-            if (!enabled)
-            {
-                ResetDeflection();
-                return result;
-            }
+            if (!enabled) ResetDeflection();
 
             foreach (var rule in _rules)
             {
+                // 手柄来源不受捕获开关限制：捕获只管键鼠是否被拦截，与手柄管线无关
+                if (rule.Source == MappingSource.Gamepad)
+                {
+                    ApplyGamepad(rule, now, pad, ref result);
+                    continue;
+                }
+
+                if (!enabled) continue;
+
                 if (rule.Source == MappingSource.MouseAxis)
                     ApplyMouseAxis(rule, dx, dy, (float)dtMs, smooth, consume, ref result);
                 else
@@ -174,11 +248,58 @@ public sealed class MappingEngine
         if (!TryGetHoldStart(rule, now, out long startMs))
             return;
 
+        ApplyOutputs(rule, now - startMs, ref result);
+    }
+
+    /// <summary>
+    /// 手柄来源：按键/扳机档位/摇杆方向都是**电平**，按上升沿记「按住起点」，之后与键盘走同一套逐槽延迟与连按。
+    /// <para>摇杆是否透传由规则表静态决定（任意方向有规则即整根停），这里只判定按键是否成立。</para>
+    /// </summary>
+    private void ApplyGamepad(MappingRule rule, long now, in GamepadInputState pad, ref MappingResult result)
+    {
+        bool wasActive = _padActiveAtMs.TryGetValue(rule.Id, out long startMs);
+        float margin = wasActive ? PadReleaseMargin : 0f;
+
+        bool active;
+        if (GamepadInputs.TryGetStickDirection(rule.PadInput, out bool leftStick, out float center))
+        {
+            var config = _stickMapping;
+            float x = leftStick ? pad.LeftX : pad.RightX;
+            float y = leftStick ? pad.LeftY : pad.RightY;
+            float threshold = Math.Max(0f, config.PressThreshold - margin);
+
+            active = StickSectors.IsPressed(x, y, threshold, config.SectorDegrees, center);
+        }
+        else if (GamepadInputs.TryGetTriggerLevel(rule.PadInput, out bool leftTrigger, out int level))
+        {
+            float value = leftTrigger ? pad.LeftTrigger : pad.RightTrigger;
+            active = value >= Math.Max(0f, level * (1f / GamepadInputs.TriggerLevels) - margin);
+        }
+        else
+        {
+            active = (pad.Buttons & GamepadInputs.ToButton(rule.PadInput)) != 0;
+        }
+
+        if (!active)
+        {
+            _padActiveAtMs.Remove(rule.Id);
+            return;
+        }
+
+        if (!wasActive)
+        {
+            startMs = now;
+            _padActiveAtMs[rule.Id] = now;
+        }
+
+        ApplyOutputs(rule, now - startMs, ref result);
+    }
+
+    private static void ApplyOutputs(MappingRule rule, double held, ref MappingResult result)
+    {
         var outputs = rule.Outputs;
         if (outputs.Count == 0)
             return;
-
-        double held = now - startMs;
 
         double total = rule.DelayMs;
         foreach (var output in outputs)

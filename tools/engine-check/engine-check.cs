@@ -400,5 +400,193 @@ Check("死区配置：越界值被夹取（R_ON≥0、R_OFF≤R_ON、包数≥1�
     badCfg.RadiusOn == 0f && badCfg.RadiusOff == 0f && badCfg.OutConfirmPackets == 1 &&
     badCfg.MoveStreakPackets == 1 && badCfg.MinStep == 1f && badCfg.MinAccum == 1f);
 
+// 16) 手柄输入源：按键 / 扳机 4 档 / 摇杆扇区，以及「参与映射即停止透传」
+GamepadInputState Pad(GamepadButton buttons = GamepadButton.None, float lt = 0f, float rt = 0f,
+    float lx = 0f, float ly = 0f, float rx = 0f, float ry = 0f) =>
+    new(buttons, lt, rt, lx, ly, rx, ry);
+
+GamepadInputState StickAt(double degrees, double radius) => Pad(
+    lx: (float)(radius * Math.Cos(degrees * Math.PI / 180)),
+    ly: (float)(radius * Math.Sin(degrees * Math.PI / 180)));
+
+Check("手柄输入 0–13 与 GamepadButton 位序一致",
+    Enumerable.Range(0, 14).All(i => GamepadInputs.ToButton((GamepadInput)i) == (GamepadButton)(1 << i)));
+Check("扳机档位/摇杆方向不占按键位",
+    GamepadInputs.ToButton(GamepadInput.LeftTrigger50) == GamepadButton.None &&
+    GamepadInputs.ToButton(GamepadInput.LeftStickRight) == GamepadButton.None);
+
+var padBtn = new MappingEngine();
+padBtn.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.X, Outputs = { Out(GamepadTarget.Y) } },
+});
+Check("手柄 X → Y", padBtn.Evaluate(true, Pad(GamepadButton.X)).Buttons == GamepadButton.Y);
+Check("手柄 X 参与映射 → 只屏蔽 X 的透传",
+    padBtn.Passthrough.Buttons == GamepadButton.X && !padBtn.Passthrough.LeftTrigger && !padBtn.Passthrough.RightTrigger);
+Check("手柄 X 松开 → 无输出", padBtn.Evaluate(true, Pad()).Buttons == GamepadButton.None);
+
+var padDelay = new MappingEngine();
+padDelay.SetRules(new[]
+{
+    new MappingRule
+    {
+        Source = MappingSource.Gamepad, PadInput = GamepadInput.A, DelayMs = 100,
+        Outputs = { Out(GamepadTarget.B) },
+    },
+});
+Check("手柄来源：延迟未到不输出", padDelay.Evaluate(true, Pad(GamepadButton.A)).Buttons == GamepadButton.None);
+Thread.Sleep(130);
+Check("手柄来源：延迟到点输出 B", padDelay.Evaluate(true, Pad(GamepadButton.A)).Buttons == GamepadButton.B);
+
+// 17) 扳机 4 档：档位是阈值，越深越低的档位也成立；任意一档有规则 → 整根扳机停止透传
+var trigLevels = new MappingEngine();
+trigLevels.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.LeftTrigger50, Outputs = { Out(GamepadTarget.A) } },
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.LeftTrigger75, Outputs = { Out(GamepadTarget.B) } },
+});
+Check("LT 40%：50% 档不成立 → 无输出", trigLevels.Evaluate(true, Pad(lt: 0.40f)).Buttons == GamepadButton.None);
+Check("LT 60%：只有 50% 档成立 → A", trigLevels.Evaluate(true, Pad(lt: 0.60f)).Buttons == GamepadButton.A);
+Check("LT 80%：50% 与 75% 档同时成立 → A+B", trigLevels.Evaluate(true, Pad(lt: 0.80f)).Buttons == (GamepadButton.A | GamepadButton.B));
+Check("LT 任意档有规则 → 整根 LT 停止透传（RT 不受影响）",
+    trigLevels.Passthrough.LeftTrigger && !trigLevels.Passthrough.RightTrigger);
+
+// 18) 回滞：已成立时阈值下移 0.02，抑制压在阈值上的抖动
+var hys = new MappingEngine();
+hys.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.LeftTrigger50, Outputs = { Out(GamepadTarget.A) } },
+});
+Check("回滞：LT=0.50 成立", hys.Evaluate(true, Pad(lt: 0.50f)).Buttons == GamepadButton.A);
+Check("回滞：LT=0.49 仍成立", hys.Evaluate(true, Pad(lt: 0.49f)).Buttons == GamepadButton.A);
+Check("回滞：LT=0.47 松开", hys.Evaluate(true, Pad(lt: 0.47f)).Buttons == GamepadButton.None);
+Check("回滞：LT 回到 0.50 重新成立", hys.Evaluate(true, Pad(lt: 0.50f)).Buttons == GamepadButton.A);
+
+// 19) 摇杆扇区：70° 独立区 + 两侧各 10° 共同区（= 成立半角 55°）
+Check("扇区半角：70°→55°、90°→45°",
+    Math.Abs(StickSectors.PressHalfWidthDegrees(70f) - 55f) < 1e-6f &&
+    Math.Abs(StickSectors.PressHalfWidthDegrees(90f) - 45f) < 1e-6f);
+
+var padStick = new MappingEngine();
+padStick.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.LeftStickRight, Outputs = { Out(GamepadTarget.A) } },
+});
+Check("摇杆：0°（正右）→ 左X+ 成立", padStick.Evaluate(true, StickAt(0, 0.6)).Buttons == GamepadButton.A);
+Check("摇杆：40°（右上共同区）→ 左X+ 仍成立", padStick.Evaluate(true, StickAt(40, 0.6)).Buttons == GamepadButton.A);
+Check("摇杆：60°（上方独立区）→ 左X+ 不成立", padStick.Evaluate(true, StickAt(60, 0.6)).Buttons == GamepadButton.None);
+Check("摇杆：54.9° 成立 / 55.1° 不成立",
+    padStick.Evaluate(true, StickAt(54.9, 0.6)).Buttons == GamepadButton.A &&
+    padStick.Evaluate(true, StickAt(55.1, 0.6)).Buttons == GamepadButton.None);
+Check("摇杆：半径 0.2（≤ 阈值 0.25）不成立", padStick.Evaluate(true, StickAt(0, 0.2f)).Buttons == GamepadButton.None);
+Check("摇杆参与映射 → 整根摇杆停透传（按键/扳机不受影响）",
+    padStick.Passthrough.LeftStick && !padStick.Passthrough.RightStick &&
+    padStick.Passthrough.Buttons == GamepadButton.None &&
+    !padStick.Passthrough.LeftTrigger && !padStick.Passthrough.RightTrigger);
+
+// 19b) 摇杆与扳机同构：任意一个方向有规则 → 整根摇杆停透传（静态，与摇杆当前角度无关）
+var stickBlock = new MappingEngine();
+stickBlock.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.LeftStickDown, Outputs = { Out(GamepadTarget.A) } },
+});
+Check("设置映射后立刻停透传（不需要摇杆动作）", stickBlock.Passthrough.LeftStick);
+
+var rightStickBlock = new MappingEngine();
+rightStickBlock.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.RightStickUp, Outputs = { Out(GamepadTarget.B) } },
+});
+Check("左右摇杆各管各的：右摇杆有映射只停右摇杆",
+    rightStickBlock.Passthrough.RightStick && !rightStickBlock.Passthrough.LeftStick);
+
+var mixedBlock = new MappingEngine();
+mixedBlock.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.A, Outputs = { Out(GamepadTarget.B) } },
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.LeftTrigger25, Outputs = { Out(GamepadTarget.X) } },
+});
+Check("按键/扳机来源不牵连摇杆",
+    !mixedBlock.Passthrough.LeftStick && !mixedBlock.Passthrough.RightStick &&
+    mixedBlock.Passthrough.Buttons == GamepadButton.A && mixedBlock.Passthrough.LeftTrigger);
+
+
+var bothDirs = new MappingEngine();
+bothDirs.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.LeftStickRight, Outputs = { Out(GamepadTarget.A) } },
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.LeftStickUp, Outputs = { Out(GamepadTarget.B) } },
+});
+Check("摇杆共同区 40°：右+上同时成立（A+B）",
+    bothDirs.Evaluate(true, StickAt(40, 0.6)).Buttons == (GamepadButton.A | GamepadButton.B));
+Check("摇杆独立区 20°：只有右（A）", bothDirs.Evaluate(true, StickAt(20, 0.6)).Buttons == GamepadButton.A);
+Check("摇杆独立区 70°：只有上（B）", bothDirs.Evaluate(true, StickAt(70, 0.6)).Buttons == GamepadButton.B);
+
+var padDown = new MappingEngine();
+padDown.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.LeftStickDown, Outputs = { Out(GamepadTarget.X) } },
+});
+Check("摇杆：-80° → 左下方向成立", padDown.Evaluate(true, StickAt(-80, 0.6)).Buttons == GamepadButton.X);
+Check("摇杆：+80° → 下方向不成立", padDown.Evaluate(true, StickAt(80, 0.6)).Buttons == GamepadButton.None);
+
+// 20) 摇杆参数可调：阈值/扇区生效，越界被夹取
+var stickDefaults = StickMappingConfig.Default;
+Check("摇杆参数默认 0.25 / 70°",
+    Math.Abs(stickDefaults.PressThreshold - 0.25f) < 1e-6f && Math.Abs(stickDefaults.SectorDegrees - 70f) < 1e-6f);
+
+var badStick = new StickMappingConfig { PressThreshold = 2f, SectorDegrees = 200f };
+badStick.Sanitize();
+Check("摇杆参数越界夹取（阈值 ≤0.95、扇区 ≤90°）",
+    badStick.PressThreshold == 0.95f && badStick.SectorDegrees == 90f);
+
+var tunedThreshold = new MappingEngine();
+tunedThreshold.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.LeftStickRight, Outputs = { Out(GamepadTarget.A) } },
+});
+tunedThreshold.SetStickMapping(new StickMappingConfig { PressThreshold = 0.7f, SectorDegrees = 70f });
+Check("阈值参数生效：同一位置（半径 0.6）不再成立",
+    tunedThreshold.Evaluate(true, StickAt(0, 0.6)).Buttons == GamepadButton.None);
+Check("阈值参数生效：半径 0.8 成立", tunedThreshold.Evaluate(true, StickAt(0, 0.8f)).Buttons == GamepadButton.A);
+
+var tunedSector = new MappingEngine();
+tunedSector.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.LeftStickRight, Outputs = { Out(GamepadTarget.A) } },
+});
+tunedSector.SetStickMapping(new StickMappingConfig { PressThreshold = 0.25f, SectorDegrees = 90f });
+Check("扇区参数生效：扇区 90° 时 50° 不成立（半角 45°）",
+    tunedSector.Evaluate(true, StickAt(50, 0.6)).Buttons == GamepadButton.None);
+
+// 21) 手柄规则不受捕获开关限制（设置后立即生效）；键鼠规则仍只在捕获开启时生效
+var always = new MappingEngine();
+always.SetRules(new[]
+{
+    new MappingRule { Source = MappingSource.Gamepad, PadInput = GamepadInput.B, Outputs = { Out(GamepadTarget.Y) } },
+    new MappingRule { Source = MappingSource.Keyboard, KeyCode = 0x41, Outputs = { Out(GamepadTarget.X) } },
+});
+always.OnKey(0x41, true);
+Check("捕获关闭：手柄规则照常输出", always.Evaluate(false, Pad(GamepadButton.B)).Buttons == GamepadButton.Y);
+Check("捕获关闭：同一拍里键鼠规则不输出（X 不出现）",
+    (always.Evaluate(false, Pad(GamepadButton.B)).Buttons & GamepadButton.X) == 0);
+Check("捕获开启：手柄+键鼠一起输出",
+    always.Evaluate(true, Pad(GamepadButton.B)).Buttons == (GamepadButton.X | GamepadButton.Y));
+Check("手柄松开后立即释放（关闭捕获时也一样）",
+    always.Evaluate(false, Pad()).Buttons == GamepadButton.None);
+
+var padHold = new MappingEngine();
+padHold.SetRules(new[]
+{
+    new MappingRule
+    {
+        Source = MappingSource.Gamepad, PadInput = GamepadInput.A, DelayMs = 100,
+        Outputs = { Out(GamepadTarget.B) },
+    },
+});
+Check("捕获关闭：手柄延迟计算照常推进", padHold.Evaluate(false, Pad(GamepadButton.A)).Buttons == GamepadButton.None);
+Thread.Sleep(130);
+Check("捕获关闭：延迟到点仍输出", padHold.Evaluate(false, Pad(GamepadButton.A)).Buttons == GamepadButton.B);
+
 Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");
 return fails == 0 ? 0 : 1;

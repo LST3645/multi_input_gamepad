@@ -5,6 +5,8 @@
     <Application.Resources>
         <conv:OnOffBrushConverter x:Key="OnOff" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:MappedBorderConverter x:Key="MappedBorder" />
+        <conv:BoolToCursorConverter x:Key="HandCursor" />
 
         <Style x:Key="PadKey" TargetType="Border">
             <Setter Property="Height" Value="32" />
@@ -51,6 +53,8 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="10,5" />
             <Setter Property="Cursor" Value="Hand" />
+            <!-- 自定义模板配系统虚线焦点框很难看：点过按钮后再用热键开捕获，键盘提示会把它画出来 -->
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -92,6 +96,7 @@
         <Style x:Key="PickSmall" TargetType="RadioButton">
             <Setter Property="Margin" Value="0,0,5,5" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Foreground" Value="#D8D8DE" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Padding" Value="12,0" />
@@ -141,6 +146,7 @@
         <Style x:Key="SegmentRadio" TargetType="RadioButton">
             <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Foreground" Value="#D8D8DE" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Height" Value="28" />
@@ -253,6 +259,7 @@
             <Setter Property="Width" Value="80" />
             <Setter Property="Height" Value="80" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
@@ -282,6 +289,8 @@
             <Setter Property="Width" Value="37" />
             <Setter Property="Height" Value="17" />
             <Setter Property="Cursor" Value="Hand" />
+            <!-- 点过开关后按热键开捕获时，WPF 会为键盘焦点画系统虚线框（自定义模板上没有对应视觉）-->
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
@@ -345,6 +354,7 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Height" Value="26" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboItem}" />
             <Setter Property="Template">
                 <Setter.Value>

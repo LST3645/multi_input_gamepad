@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using MultiInputGamepad.Core;
 using MultiInputGamepad.Input;
 using MultiInputGamepad.Output;
 
@@ -59,6 +60,32 @@ public sealed class PadVm : INotifyPropertyChanged
 
     public bool IsCircular => !_squareSticks;
     public bool IsSquare => _squareSticks;
+
+    /// <summary>面板上已参与映射的按键（输入手柄面板用金色描边；输出端恒为 None）。</summary>
+    private GamepadButton _mapped;
+    public GamepadButton Mapped
+    {
+        get => _mapped;
+        set
+        {
+            if (_mapped == value) return;
+            _mapped = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Mapped)));
+        }
+    }
+
+    /// <summary>面板是否支持点选编辑（只有输入手柄面板为 true，用于手型光标）。</summary>
+    private bool _editable;
+    public bool Editable
+    {
+        get => _editable;
+        set
+        {
+            if (_editable == value) return;
+            _editable = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Editable)));
+        }
+    }
 
     private string _lStickText = "(0.00, 0.00)"; public string LStickText { get => _lStickText; private set => Set(ref _lStickText, value); }
     private string _rStickText = "(0.00, 0.00)"; public string RStickText { get => _rStickText; private set => Set(ref _rStickText, value); }

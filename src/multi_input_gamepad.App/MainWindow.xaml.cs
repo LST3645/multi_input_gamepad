@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
@@ -42,6 +43,12 @@ public partial class MainWindow : Window
 
     /// <summary>当前生效的死区参数（转发线程每拍读取，切换配置后立即生效）。</summary>
     private volatile StickDeadzoneConfig _deadzoneConfig = StickDeadzoneConfig.Default;
+
+    /// <summary>当前生效的摇杆 → 按键 判定参数（配置级；转发线程每拍读取）。</summary>
+    private volatile StickMappingConfig _stickMapping = StickMappingConfig.Default;
+
+    /// <summary>回填参数输入框时抑制 TextChanged。</summary>
+    private bool _suppressStickParams;
 
     /// <summary>死区参数版本：变化时转发线程重置摇杆状态机，避免旧状态绕过新阈值。</summary>
     private int _deadzoneRevision;
@@ -138,25 +145,55 @@ public partial class MainWindow : Window
 
     // —— 配置（多套 + 导入/导出） ——
 
-    /// <summary>把配置应用到运行时：规则 → 列表/引擎，开关与死区 → 运行参数与 UI。</summary>
+    /// <summary>把配置应用到运行时：规则 → 列表/引擎，开关与死区/摇杆参数 → 运行参数与 UI。</summary>
     private void ApplyConfig(ProfileConfig config)
     {
         _normalizeSticks = config.NormalizeSticks;
         _deadzoneConfig = config.Deadzone;
+        _stickMapping = config.StickMapping;
         Interlocked.Increment(ref _deadzoneRevision);   // 通知转发线程重置死区状态机
         NormalizeCheck.IsChecked = _normalizeSticks;
         _vm.OutputPad.SquareSticks = !_normalizeSticks;
 
+        _suppressStickParams = true;
+        try
+        {
+            StickThresholdBox.Text = _stickMapping.PressThreshold.ToString("0.00", CultureInfo.InvariantCulture);
+            SectorBox.Text = _stickMapping.SectorDegrees.ToString("0", CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            _suppressStickParams = false;
+        }
+
         _vm.ReloadMappings(config.Mappings);
+        _engine.SetStickMapping(_stickMapping);
         _engine.SetRules(config.Mappings);
     }
 
-    /// <summary>落盘当前配置（映射取列表最新，开关取运行时值）。</summary>
+    /// <summary>落盘当前配置（映射取列表最新，开关与摇杆参数取运行时值）。</summary>
     private void SaveActiveProfile()
     {
         _config.Mappings = _vm.Mappings.Select(row => row.Rule).ToList();
         _config.NormalizeSticks = _normalizeSticks;
+        _config.StickMapping = _stickMapping;
         ConfigStore.Save(_config);
+    }
+
+    /// <summary>摇杆 → 按键 参数改动：夹取后立即生效（落盘走退出/切配置时的 SaveActiveProfile）。</summary>
+    private void OnStickParamChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (_suppressStickParams || StickThresholdBox is null || SectorBox is null) return;
+
+        var config = new StickMappingConfig
+        {
+            PressThreshold = NumberBox.Float(StickThresholdBox, _stickMapping.PressThreshold, 0.05f, 0.95f),
+            SectorDegrees = NumberBox.Float(SectorBox, _stickMapping.SectorDegrees, 20f, 90f),
+        };
+        config.Sanitize();
+
+        _stickMapping = config;
+        _engine.SetStickMapping(config);
     }
 
     private void RefreshProfileList(string active)
@@ -541,7 +578,11 @@ public partial class MainWindow : Window
                 dzLeftX = dzLeftY = dzRightX = dzRightY = 0f;
             }
 
-            ApplyMapping(ref state, _engine.Evaluate(capturing), _normalizeSticks);
+            // 手柄来源：用**死区之后**的值判定（与游戏看到的一致）；手柄规则不受捕获开关限制，设置后立即生效
+            var padInput = snap is { } p ? ToGamepadInputState(p, state) : default;
+            var mapping = _engine.Evaluate(capturing, padInput);
+            SuppressMappedInputs(ref state, _engine.Passthrough);
+            ApplyMapping(ref state, mapping, _normalizeSticks);
 
             if (packetChanged || now - lastSubmitTick >= minSubmitTicks)
             {
@@ -599,6 +640,69 @@ public partial class MainWindow : Window
         return (((motorBytes >> 8) & 0xFF) / 255f, (motorBytes & 0xFF) / 255f);
     }
 
+
+    /// <summary>物理手柄快照 → Core 侧手柄输入（手柄映射求值用）。数值取死区之后的值。</summary>
+    private static GamepadInputState ToGamepadInputState(in GamepadSnapshot s, in VirtualGamepadState state) => new(
+        ToCoreButtons(s.Buttons), state.LeftTrigger, state.RightTrigger,
+        state.LeftX, state.LeftY, state.RightX, state.RightY);
+
+    private static GamepadButton ToCoreButtons(XInputButtons buttons)
+    {
+        var b = GamepadButton.None;
+        if (buttons.HasFlag(XInputButtons.A)) b |= GamepadButton.A;
+        if (buttons.HasFlag(XInputButtons.B)) b |= GamepadButton.B;
+        if (buttons.HasFlag(XInputButtons.X)) b |= GamepadButton.X;
+        if (buttons.HasFlag(XInputButtons.Y)) b |= GamepadButton.Y;
+        if (buttons.HasFlag(XInputButtons.LeftShoulder)) b |= GamepadButton.LeftBumper;
+        if (buttons.HasFlag(XInputButtons.RightShoulder)) b |= GamepadButton.RightBumper;
+        if (buttons.HasFlag(XInputButtons.LeftThumb)) b |= GamepadButton.LeftStick;
+        if (buttons.HasFlag(XInputButtons.RightThumb)) b |= GamepadButton.RightStick;
+        if (buttons.HasFlag(XInputButtons.Start)) b |= GamepadButton.Start;
+        if (buttons.HasFlag(XInputButtons.Back)) b |= GamepadButton.Back;
+        if (buttons.HasFlag(XInputButtons.DPadUp)) b |= GamepadButton.DPadUp;
+        if (buttons.HasFlag(XInputButtons.DPadDown)) b |= GamepadButton.DPadDown;
+        if (buttons.HasFlag(XInputButtons.DPadLeft)) b |= GamepadButton.DPadLeft;
+        if (buttons.HasFlag(XInputButtons.DPadRight)) b |= GamepadButton.DPadRight;
+        return b;
+    }
+
+    /// <summary>
+    /// 被手柄映射接管的输入不再透传：按键位清零、对应扳机整根归零、对应摇杆两轴归零；
+    /// 映射结果随后叠加（所以映射可以把同一个键再按下去）。
+    /// </summary>
+    private static void SuppressMappedInputs(ref VirtualGamepadState state, PassthroughBlock block)
+    {
+        var b = block.Buttons;
+        if ((b & GamepadButton.A) != 0) state.A = false;
+        if ((b & GamepadButton.B) != 0) state.B = false;
+        if ((b & GamepadButton.X) != 0) state.X = false;
+        if ((b & GamepadButton.Y) != 0) state.Y = false;
+        if ((b & GamepadButton.LeftBumper) != 0) state.LeftBumper = false;
+        if ((b & GamepadButton.RightBumper) != 0) state.RightBumper = false;
+        if ((b & GamepadButton.LeftStick) != 0) state.LeftStick = false;
+        if ((b & GamepadButton.RightStick) != 0) state.RightStick = false;
+        if ((b & GamepadButton.Start) != 0) state.Start = false;
+        if ((b & GamepadButton.Back) != 0) state.Back = false;
+        if ((b & GamepadButton.DPadUp) != 0) state.DPadUp = false;
+        if ((b & GamepadButton.DPadDown) != 0) state.DPadDown = false;
+        if ((b & GamepadButton.DPadLeft) != 0) state.DPadLeft = false;
+        if ((b & GamepadButton.DPadRight) != 0) state.DPadRight = false;
+
+        if (block.LeftTrigger) state.LeftTrigger = 0f;
+        if (block.RightTrigger) state.RightTrigger = 0f;
+
+        if (block.LeftStick)
+        {
+            state.LeftX = 0f;
+            state.LeftY = 0f;
+        }
+
+        if (block.RightStick)
+        {
+            state.RightX = 0f;
+            state.RightY = 0f;
+        }
+    }
 
     private static VirtualGamepadState ToVirtualState(in GamepadSnapshot s) => new()
     {
@@ -703,27 +807,35 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    /// <summary>输入手柄可视化里的按键单击：已映射则编辑该条，未映射则以该按键为种子新建。</summary>
+    private void OnPadKeyClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement element || element.DataContext is not PadVm pad) return;
+        if (!ReferenceEquals(pad, _vm.InputPad)) return;   // 输出面板只展示，不响应点击
+        if (element.Tag is not string tag || !Enum.TryParse<GamepadInput>(tag, out var input)) return;
+
+        e.Handled = true;
+        OpenEditor(new MappingRule { Source = MappingSource.Gamepad, PadInput = input },
+            item => item.Rule.Source == MappingSource.Gamepad && item.Rule.PadInput == input);
+    }
+
     /// <summary>
     /// 单击可视化里的输入：已映射则编辑该条；未映射则以该输入为种子新建
     /// （编辑器自动切到对应来源页并预选该键，仍可修改）。
     /// </summary>
-    private void OpenEditorFor(MappingSource source, int code)
-    {
-        MappingRowVm? row = _vm.Mappings.FirstOrDefault(
+    private void OpenEditorFor(MappingSource source, int code) =>
+        OpenEditor(new MappingRule { Source = source, KeyCode = code },
             item => item.Rule.Source == source && item.Rule.KeyCode == code);
 
-        if (row is null)
-        {
-            var seed = new MappingRule { Source = source, KeyCode = code };
-            var newDialog = new MappingEditorWindow(seed, CurrentRules()) { Owner = this };
-            if (newDialog.ShowDialog() == true && newDialog.Result is { } created)
-                _vm.AddMapping(created);
-            return;
-        }
+    /// <summary>共用流程：命中已有规则就编辑，否则用种子规则新建。</summary>
+    private void OpenEditor(MappingRule seed, Func<MappingRowVm, bool> match)
+    {
+        MappingRowVm? row = _vm.Mappings.FirstOrDefault(match);
+        var dialog = new MappingEditorWindow(row?.Rule ?? seed, CurrentRules()) { Owner = this };
+        if (dialog.ShowDialog() != true || dialog.Result is not { } rule) return;
 
-        var dialog = new MappingEditorWindow(row.Rule, CurrentRules()) { Owner = this };
-        if (dialog.ShowDialog() != true || dialog.Result is not { } edited) return;
-        _vm.ReplaceMapping(row, edited);
+        if (row is null) _vm.AddMapping(rule);
+        else _vm.ReplaceMapping(row, rule);
     }
 
     private void OnDeleteMappingClick(object sender, RoutedEventArgs e)

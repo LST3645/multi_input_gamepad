@@ -70,12 +70,18 @@
                     <!-- 肩键 LB/RB -->
                     <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource PadKey}" Width="68"
                             HorizontalAlignment="Left" Margin="16,0,0,0"
-                            Background="{Binding LB, Converter={StaticResource OnOff}, ConverterParameter=#4C6EF5}">
+                            Background="{Binding LB, Converter={StaticResource OnOff}, ConverterParameter=#4C6EF5}"
+                            BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=LeftBumper}"
+                            Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                            Tag="LeftBumper" MouseLeftButtonDown="OnPadKeyClick">
                         <TextBlock Style="{StaticResource PadKeyText}" Text="LB" />
                     </Border>
                     <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource PadKey}" Width="68"
                             HorizontalAlignment="Right" Margin="0,0,16,0"
-                            Background="{Binding RB, Converter={StaticResource OnOff}, ConverterParameter=#4C6EF5}">
+                            Background="{Binding RB, Converter={StaticResource OnOff}, ConverterParameter=#4C6EF5}"
+                            BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=RightBumper}"
+                            Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                            Tag="RightBumper" MouseLeftButtonDown="OnPadKeyClick">
                         <TextBlock Style="{StaticResource PadKeyText}" Text="RB" />
                     </Border>
 
@@ -141,21 +147,33 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource PadKey}" MinWidth="34"
-                                Background="{Binding DUp, Converter={StaticResource OnOff}, ConverterParameter=#8E8E96}">
+                                Background="{Binding DUp, Converter={StaticResource OnOff}, ConverterParameter=#8E8E96}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=DPadUp}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="DPadUp" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="↑" />
                         </Border>
                         <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource PadKey}" MinWidth="34"
-                                Background="{Binding DLeft, Converter={StaticResource OnOff}, ConverterParameter=#8E8E96}">
+                                Background="{Binding DLeft, Converter={StaticResource OnOff}, ConverterParameter=#8E8E96}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=DPadLeft}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="DPadLeft" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="←" />
                         </Border>
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="十字" FontSize="10" Foreground="#6A6A72"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource PadKey}" MinWidth="34"
-                                Background="{Binding DRight, Converter={StaticResource OnOff}, ConverterParameter=#8E8E96}">
+                                Background="{Binding DRight, Converter={StaticResource OnOff}, ConverterParameter=#8E8E96}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=DPadRight}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="DPadRight" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="→" />
                         </Border>
                         <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource PadKey}" MinWidth="34"
-                                Background="{Binding DDown, Converter={StaticResource OnOff}, ConverterParameter=#8E8E96}">
+                                Background="{Binding DDown, Converter={StaticResource OnOff}, ConverterParameter=#8E8E96}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=DPadDown}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="DPadDown" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="↓" />
                         </Border>
                     </Grid>
@@ -173,19 +191,31 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource PadKey}" MinWidth="38"
-                                Background="{Binding Y, Converter={StaticResource OnOff}, ConverterParameter=#D4A017}">
+                                Background="{Binding Y, Converter={StaticResource OnOff}, ConverterParameter=#D4A017}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=Y}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="Y" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="Y" />
                         </Border>
                         <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource PadKey}" MinWidth="38"
-                                Background="{Binding X, Converter={StaticResource OnOff}, ConverterParameter=#2E86DE}">
+                                Background="{Binding X, Converter={StaticResource OnOff}, ConverterParameter=#2E86DE}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=X}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="X" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="X" />
                         </Border>
                         <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource PadKey}" MinWidth="38"
-                                Background="{Binding B, Converter={StaticResource OnOff}, ConverterParameter=#C0392B}">
+                                Background="{Binding B, Converter={StaticResource OnOff}, ConverterParameter=#C0392B}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=B}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="B" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="B" />
                         </Border>
                         <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource PadKey}" MinWidth="38"
-                                Background="{Binding A, Converter={StaticResource OnOff}, ConverterParameter=#27AE60}">
+                                Background="{Binding A, Converter={StaticResource OnOff}, ConverterParameter=#27AE60}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=A}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="A" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="A" />
                         </Border>
                     </Grid>
@@ -200,21 +230,33 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
                         <Border Style="{StaticResource PadKey}"
-                                Background="{Binding Back, Converter={StaticResource OnOff}, ConverterParameter=#6A6A72}">
+                                Background="{Binding Back, Converter={StaticResource OnOff}, ConverterParameter=#6A6A72}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=Back}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="Back" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="View" />
                         </Border>
                         <Border Style="{StaticResource PadKey}"
-                                Background="{Binding Start, Converter={StaticResource OnOff}, ConverterParameter=#6A6A72}">
+                                Background="{Binding Start, Converter={StaticResource OnOff}, ConverterParameter=#6A6A72}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=Start}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="Start" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="Menu" />
                         </Border>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
                         <Border Style="{StaticResource PadKey}" MinWidth="40"
-                                Background="{Binding L3, Converter={StaticResource OnOff}, ConverterParameter=#4C9AFF}">
+                                Background="{Binding L3, Converter={StaticResource OnOff}, ConverterParameter=#4C9AFF}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=LeftStick}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="LeftStick" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="L3" />
                         </Border>
                         <Border Style="{StaticResource PadKey}" MinWidth="40"
-                                Background="{Binding R3, Converter={StaticResource OnOff}, ConverterParameter=#4C9AFF}">
+                                Background="{Binding R3, Converter={StaticResource OnOff}, ConverterParameter=#4C9AFF}"
+                                BorderBrush="{Binding Mapped, Converter={StaticResource MappedBorder}, ConverterParameter=RightStick}"
+                                Cursor="{Binding Editable, Converter={StaticResource HandCursor}}"
+                                Tag="RightStick" MouseLeftButtonDown="OnPadKeyClick">
                             <TextBlock Style="{StaticResource PadKeyText}" Text="R3" />
                         </Border>
                     </StackPanel>
@@ -288,7 +330,7 @@
                        VerticalAlignment="Center" Margin="0,0,14,0" />
 
             <Button Grid.Column="1" Margin="0,0,10,0" Cursor="Hand" Click="OnCapturePillClick"
-                    ToolTip="点击开启捕获">
+                    FocusVisualStyle="{x:Null}" ToolTip="点击开启捕获">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border CornerRadius="10" Padding="10,4"
@@ -437,7 +479,7 @@
         </Grid>
 
         <!-- 下：左＝输入端手柄，中＝输出端手柄，右＝映射规则 -->
-        <Grid Grid.Row="2" Height="404" Margin="0,10,0,0">
+        <Grid Grid.Row="2" Height="432" Margin="0,10,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -445,7 +487,21 @@
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Style="{StaticResource Card}" Width="440" Margin="0,0,10,0">
-                <ContentControl Content="{Binding InputPad}" ContentTemplate="{StaticResource PadTemplate}" Focusable="False" />
+                <DockPanel>
+                    <!-- 手柄摇杆 → 按键 的判定参数（配置级） -->
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0">
+                        <TextBlock Text="摇杆映射：位移 &gt;" FontSize="11" Foreground="#9A9AA2" VerticalAlignment="Center" />
+                        <TextBox x:Name="StickThresholdBox" Style="{StaticResource Input}" Width="46" Height="22" Padding="4,0"
+                                 Margin="6,0,0,0" Text="0.25" TextChanged="OnStickParamChanged"
+                                 ToolTip="摇杆径向位移超过该值才判为按下（0.05–0.95）" />
+                        <TextBlock Text="独立扇区" FontSize="11" Foreground="#9A9AA2" VerticalAlignment="Center" Margin="16,0,0,0" />
+                        <TextBox x:Name="SectorBox" Style="{StaticResource Input}" Width="46" Height="22" Padding="4,0"
+                                 Margin="6,0,0,0" Text="70" TextChanged="OnStickParamChanged"
+                                 ToolTip="方向独立区角度（20–90°）；两侧共同区各占 (90−本值)/2" />
+                        <TextBlock Text="°" FontSize="11" Foreground="#9A9AA2" VerticalAlignment="Center" Margin="2,0,0,0" />
+                    </StackPanel>
+                    <ContentControl Content="{Binding InputPad}" ContentTemplate="{StaticResource PadTemplate}" Focusable="False" />
+                </DockPanel>
             </Border>
 
             <Border Grid.Column="1" Style="{StaticResource Card}" Width="440" Margin="0,0,10,0">
@@ -532,11 +588,12 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding InputText}" FontSize="12"
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Text}" FontSize="12"
                                                            Foreground="#E8E8E8" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding DetailText}" FontSize="10.5"
+                                                <TextBlock Text="{Binding RepeatText}" FontSize="10.5"
                                                            Foreground="#8A8A92" Margin="0,2,0,0"
+                                                           Visibility="{Binding HasRepeat, Converter={StaticResource BoolToVis}}"
                                                            TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
 
